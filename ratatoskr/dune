@@ -1,0 +1,5 @@
+(executable
+  (public_name ratatoskr)
+  (name ratatoskr)
+  (libraries discord)
+  (package ratatoskr))

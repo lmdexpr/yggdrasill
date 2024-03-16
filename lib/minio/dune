@@ -1,0 +1,10 @@
+(library
+  (public_name minio)
+  (name minio)
+  (libraries 
+    cohttp-eio
+    tls-eio
+    mirage-crypto-rng-eio
+    yojson)
+  (preprocess (pps ppx_yojson_conv))
+)

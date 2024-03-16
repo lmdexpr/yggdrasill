@@ -1,6 +1,0 @@
-pin-depends: [
-  [ "cohttp" "https://github.com/mirage/ocaml-cohttp.git#v6.0.0_beta1" ]
-  [ "cohttp-eio" "https://github.com/mirage/ocaml-cohttp.git#v6.0.0_beta1" ]
-  [ "sodium" "https://github.com/ahrefs/ocaml-sodium.git#734eccbb47e7545a459a504188f1da8dc0bd018e" ]
-  [ "discord" "https://github.com/ushitora-anqou/discordml.git#master" ]
-]

@@ -1,0 +1,10 @@
+(library
+  (public_name elasticmq)
+  (name elasticmq)
+  (libraries 
+    cohttp-eio
+    tls-eio
+    mirage-crypto-rng-eio
+    yojson)
+  (preprocess (pps ppx_yojson_conv))
+)
