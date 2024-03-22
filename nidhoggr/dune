@@ -1,5 +1,5 @@
 (executable
   (public_name nidhoggr)
   (name nidhoggr)
-  (libraries discord)
+  (libraries logs)
   (package nidhoggr))

@@ -1,5 +1,16 @@
 (executable
   (public_name ratatoskr)
   (name ratatoskr)
-  (libraries discord)
+  (libraries 
+    cohttp-eio
+    eio_main
+    eio.unix
+    fmt
+    unix
+    logs.fmt
+    logs.threaded
+    sodium
+    tls-eio
+    mirage-crypto-rng-eio)
+  (preprocess (pps ppx_yojson_conv))
   (package ratatoskr))
