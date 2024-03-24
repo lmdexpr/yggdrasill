@@ -92,9 +92,7 @@
         devShells.default =
           pkgs.mkShell {
             inputsFrom = builtins.map (p: scope.${p}) localNames;
-            buildInputs = [
-              pkgs.libopus
-            ] ++ devPackages ++ [ pkgs.nil pkgs.nixpkgs-fmt ];
+            buildInputs = devPackages ++ [ pkgs.nil pkgs.nixpkgs-fmt ];
           };
       });
 }
