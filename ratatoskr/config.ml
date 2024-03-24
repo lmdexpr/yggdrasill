@@ -2,14 +2,17 @@ type t = {
   public_key : string;
 }
 
+open struct
+  let c x _ = x
+
+  let getenv
+    ?(default = fun name -> failwith (Printf.sprintf "Environment variable %s is not set" name)) 
+    name =
+    Sys.getenv_opt name |> Option.value ~default:(default name)
+end
+
 let load () =
-  let port = ref 8080 in
-  let public_key = ref "" in
-  Arg.parse
-    [ ("-p", Arg.Set_int port, " Listening port number(8080 by default)")
-    ; ("-k", Arg.Set_string public_key, " Discord public key")
-    ]
-    ignore "Usage: ratatoskr [-p PORT] [-k PUBLIC_KEY]";
-  !port, {
-    public_key = !public_key 
+  int_of_string @@ getenv ~default:(c "8080") "RATATOSKR_PORT",
+  {
+    public_key = getenv "RATATOSKR_PUBLIC_KEY"
   }

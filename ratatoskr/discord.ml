@@ -164,22 +164,29 @@ open struct
       Some ()
     with _ -> None
 
-  let empty_response ~status = Cohttp.Response.make ~status (), Cohttp_eio.Body.of_string ""
   let pong () = Cohttp.Response.make ~status:`OK (), InteractionResponse.Body.(response_of_yojson pong)
+
+  let read_body body = Eio.Buf_read.(body |> of_flow ~max_size:max_int |> take_all)
+
+  let empty_response ~status = Cohttp.Response.make ~status (), Cohttp_eio.Body.of_string ""
 end
 
 let callback ~config:({ public_key }: Config.t) ~on_interaction _socket request body =
-  if Http.Request.resource request = "/" then
-    let headers = Http.Request.headers request in
-    let body    = Eio.Buf_read.(of_flow ~max_size:max_int body |> take_all) in
-    match verify_key ~public_key headers body with
-    | None    -> empty_response ~status:`Unauthorized
-    | Some () -> 
+  match Http.Request.(meth request, resource request, has_body request) with
+  | `POST, "/", `Yes -> 
+    let headers  = Http.Request.headers request in
+    let body     = read_body body in
+    let verified = 
+      Option.is_some @@ verify_key ~public_key headers body 
+    in
+    if not verified then empty_response ~status:`Unauthorized
+    else (
       let body = Interaction.Body.of_string body in
       match body.type_ with
       | PING                -> pong ()
       | APPLICATION_COMMAND -> on_interaction request body
-      | _                   -> empty_response ~status:`Not_found
-  else
-    empty_response ~status:`Not_found
-
+      | _                   -> empty_response ~status:`Service_unavailable
+    )
+  | `POST, "/", _ -> empty_response ~status:`Bad_request
+  | `POST,   _, _ -> empty_response ~status:`Not_found
+  | _             -> empty_response ~status:`Method_not_allowed
