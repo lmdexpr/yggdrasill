@@ -1,70 +1,164 @@
 open Ppx_yojson_conv_lib.Yojson_conv.Primitives
 open Printf
 
-module Http = struct
-  let null_auth ?ip:_ ~host:_ _ = Ok None
+module Register = struct 
+  open struct
+    let null_auth ?ip:_ ~host:_ _ = Ok None
 
-  let https ~authenticator =
-    let tls_config = Tls.Config.client ~authenticator () in
-    fun uri raw ->
+    let https ~authenticator =
+      let tls_config = Tls.Config.client ~authenticator () in
+      fun uri raw ->
       let host =
         Uri.host uri
         |> Option.map (fun x -> Domain_name.(host_exn (of_string_exn x)))
       in
       Tls_eio.client_of_flow ?host tls_config raw
 
-  let request ?headers ?body ~meth env ~sw (url : string) =
-    let headers = headers |> Option.map Cohttp.Header.of_list in
-    let body =
-      body
-      |> Option.map (function `Fixed src -> Cohttp_eio.Body.of_string src)
-    in
-    let client =
-      Cohttp_eio.Client.make
-        ~https:(Some (https ~authenticator:null_auth))
-        (Eio.Stdenv.net env)
-    in
-    Cohttp_eio.Client.call ~sw ?headers ?body client meth (Uri.of_string url)
+    let request ?headers ?body ~meth env ~sw (url : string) =
+      let headers = headers |> Option.map Cohttp.Header.of_list in
+      let body =
+        body
+        |> Option.map (function `Fixed src -> Cohttp_eio.Body.of_string src)
+      in
+      let client =
+        Cohttp_eio.Client.make
+          ~https:(Some (https ~authenticator:null_auth))
+          (Eio.Stdenv.net env)
+      in
+      Cohttp_eio.Client.call ~sw ?headers ?body client meth (Uri.of_string url)
 
-  let get    = request ~meth:`GET
-  let post   = request ~meth:`POST
-  let put    = request ~meth:`PUT
-  let delete = request ~meth:`DELETE
-
-  let drain_resp_body (_, body) = Eio.Buf_read.(parse_exn take_all) body ~max_size:max_int
-end
-
-module SlashCommand = struct 
-  type t = {
-    name        : string;
-    description : string;
-  }
-  [@@deriving yojson]
+    let body_to_yojson body = 
+      try
+        Eio.Buf_read.(parse_exn take_all) body ~max_size:max_int
+        |> Yojson.Safe.from_string
+        |> Option.some
+      with _ -> None
+  end
 
   open struct
     let global_url = sprintf "https://discord.com/api/v10/applications/%d/commands"
     let guild_url  = sprintf "https://discord.com/api/v10/applications/%d/guilds/%d/commands"
 
-    let register ~url ~token ~(commands: t list) env =
+    let register ~url ~token ~commands env =
       let headers = [
         "Content-type", "application/json";
         "Authorization", sprintf "Bot %s" token;
       ] in
-      let body =
-        `Fixed (Yojson.Safe.to_string (`List (List.map yojson_of_t commands)))
-      in
+      let body = `Fixed (Yojson.Safe.to_string commands) in
       Eio.Switch.run @@ fun sw ->
-      let response = Http.post ~headers ~body env ~sw url in
-      let body =
-        try response |> Http.drain_resp_body |> Yojson.Safe.from_string |> Option.some with _ -> None
-      in
-      (Cohttp.Response.status (fst response), body)
+      let code, body = request ~meth:`POST ~headers ~body env ~sw url in
+      (Cohttp.Response.status code, body_to_yojson body)
   end
 
-  module Register = struct
-    let global ~application_id           = register ~url:(global_url application_id)
-    let guild  ~application_id ~guild_id = register ~url:(guild_url application_id guild_id)
-  end
-
-  let run _handlers = ()
+  let global ~application_id           = register ~url:(global_url application_id)
+  let guild  ~application_id ~guild_id = register ~url:(guild_url application_id guild_id)
 end
+
+module Interaction = struct
+  type type_ =
+    | PING
+    | APPLICATION_COMMAND
+    | MESSAGE_COMPONENT
+    | APPLICATION_COMMAND_AUTOCOMPLETE
+    | MODAL_SUBMIT
+
+  let yojson_of_type_ = function
+    | PING                             -> `Int 1
+    | APPLICATION_COMMAND              -> `Int 2
+    | MESSAGE_COMPONENT                -> `Int 3
+    | APPLICATION_COMMAND_AUTOCOMPLETE -> `Int 4
+    | MODAL_SUBMIT                     -> `Int 5
+
+  let type__of_yojson = function
+    | `Int 1 -> PING
+    | `Int 2 -> APPLICATION_COMMAND
+    | `Int 3 -> MESSAGE_COMPONENT
+    | `Int 4 -> APPLICATION_COMMAND_AUTOCOMPLETE
+    | `Int 5 -> MODAL_SUBMIT
+    | _      -> raise (Yojson.Json_error "Invalid interaction type")
+
+  module Body = struct
+    type option = {
+      name: string;
+      value: string;
+    } [@@deriving yojson]
+
+    type data = {
+      id: string;
+      name: string;
+      options: option list [@default []];
+    } [@@deriving yojson]
+
+    type t = {
+      id: string;
+      data: data;
+      token: string;
+      type_: type_;
+      version: int;
+    } [@@deriving yojson]
+
+    let of_string s = s |> Yojson.Safe.from_string |> t_of_yojson
+  end
+end
+
+module InteractionResponse = struct
+  type type_ =
+    | PONG
+    | CHANNEL_MESSAGE_WITH_SOURCE
+    | DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
+    | DEFERRED_UPDATE_MESSAGE
+    | UPDATE_MESSAGE
+    | APPLICATION_COMMAND_AUTOCOMPLETE_RESULT
+    | MODAL
+    | PREMIUM_REQUIRED
+
+  let yojson_of_type_ = function
+    | PONG                                    -> `Int 1
+    | CHANNEL_MESSAGE_WITH_SOURCE             -> `Int 4
+    | DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE    -> `Int 5
+    | DEFERRED_UPDATE_MESSAGE                 -> `Int 6
+    | UPDATE_MESSAGE                          -> `Int 7
+    | APPLICATION_COMMAND_AUTOCOMPLETE_RESULT -> `Int 8
+    | MODAL                                   -> `Int 9
+    | PREMIUM_REQUIRED                        -> `Int 10
+
+  let type__of_yojson = function
+    | `Int 1  -> PONG
+    | `Int 4  -> CHANNEL_MESSAGE_WITH_SOURCE
+    | `Int 5  -> DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
+    | `Int 6  -> DEFERRED_UPDATE_MESSAGE
+    | `Int 7  -> UPDATE_MESSAGE
+    | `Int 8  -> APPLICATION_COMMAND_AUTOCOMPLETE_RESULT
+    | `Int 9  -> MODAL
+    | `Int 10 -> PREMIUM_REQUIRED
+    | _       -> raise (Yojson.Json_error "Invalid interaction response type")
+
+  module Body = struct
+    type data = {
+      content: string option [@default None];
+    } [@@deriving yojson]
+
+    type t = {
+      type_: type_;
+      data: data option [@default None];
+    } [@@deriving yojson]
+
+    let pong = { type_ = PONG; data = None }
+    let channel_message_with_source content = { type_ = CHANNEL_MESSAGE_WITH_SOURCE; data = Some { content } }
+
+    let response_of_yojson body = yojson_of_t body |> Yojson.Safe.to_string |> Cohttp_eio.Body.of_string
+  end
+end
+
+let verify_key ~public_key headers body =
+  let (let*) = Option.bind in
+  let* signature = Cohttp.Header.get headers "x-signature-ed25519" in
+  let* timestamp = Cohttp.Header.get headers "x-signature-timestamp" in
+  try
+    Sodium.Auth.Bytes.(verify
+      (Bytes.of_string (timestamp ^ body) |> to_key)
+      (Bytes.of_string signature |> to_auth)
+      (Bytes.of_string public_key)
+    );
+    Some ()
+  with _ -> None
