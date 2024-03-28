@@ -36,3 +36,6 @@ toolkit/
 # nix
 result
 result-*
+
+# private
+*.secret

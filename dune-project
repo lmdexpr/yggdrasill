@@ -23,6 +23,7 @@
     yojson
     ppx_yojson_conv
     logs
+    sodium
     ))
 
 (package
@@ -62,13 +63,16 @@
     (dune (>= 3.10))
     (ocaml (>= 5.1))
     eio
+    eio_main
     tls-eio
     mirage-crypto-rng-eio
+    cohttp
     cohttp-eio
-    yojson
-    ppx_yojson_conv
     logs
+    uri
+    http
     discord
+    elasticmq
     ))
 
 (package
@@ -84,5 +88,6 @@
     yojson
     ppx_yojson_conv
     logs
-    discord
+    minio
+    elasticmq
     ))

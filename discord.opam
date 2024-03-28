@@ -16,6 +16,7 @@ depends: [
   "yojson"
   "ppx_yojson_conv"
   "logs"
+  "sodium"
   "odoc" {with-doc}
 ]
 build: [
@@ -33,3 +34,6 @@ build: [
   ]
 ]
 dev-repo: "git+https://github.com/lmdexpr/yggdrasill.git"
+pin-depends: [
+  [ "sodium.dev" "git+https://github.com/ahrefs/ocaml-sodium#734eccbb47e7545a459a504188f1da8dc0bd018e" ]
+]

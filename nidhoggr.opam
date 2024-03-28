@@ -16,7 +16,8 @@ depends: [
   "yojson"
   "ppx_yojson_conv"
   "logs"
-  "discord"
+  "minio"
+  "elasticmq"
   "odoc" {with-doc}
 ]
 build: [

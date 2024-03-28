@@ -5,6 +5,7 @@
     cohttp-eio
     tls-eio
     mirage-crypto-rng-eio
+    sodium
     yojson)
   (preprocess (pps ppx_yojson_conv))
 )
