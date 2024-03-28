@@ -34,7 +34,7 @@ let () =
   Eio.Switch.run @@ fun sw ->
   let socket =
     Eio.Net.listen env#net ~sw ~backlog:128 ~reuse_addr:true
-      (`Tcp (Eio.Net.Ipaddr.V4.loopback, port))
+      (`Tcp (Eio.Net.Ipaddr.V4.any, port))
   in
   Cohttp_eio.Server.run socket ~on_error @@
   Cohttp_eio.Server.make ~callback ()
